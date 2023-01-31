@@ -362,9 +362,9 @@
                 min = Math.round((thermCenter - (mindistance / 2)) * 10) / 10;
                 max = Math.round((thermCenter + (mindistance / 2)) * 10) / 10;
             }
-            let meter = therm[sizeX * (sizeY / 2) + sizeX / 2];
+            let meter = therm[(sizeY / 2) * sizeX + sizeX / 2];
             if (metercoords) {
-                meter = therm[sizeX * (metercoords.y) + metercoords.x];
+                meter = therm[(metercoords.y) * sizeX + ((sizeX - 1) - metercoords.x)];
             }
             document.getElementById('meterValue').innerText = (metercoords != null ? 'Marker: ' : 'Center: ') + Math.round(meter * 10) / 10;
             if (adaptiveRange) {
