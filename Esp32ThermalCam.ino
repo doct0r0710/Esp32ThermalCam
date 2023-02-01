@@ -35,13 +35,7 @@
 #define SMALL_LED 33
 #define LED_CONTROL 15
 
-#include "wifi.h" //this file is in .gitignore so is not saved in any github repositories
-// // create wifi.h: Replace with your network credentials
-// const char *ssid = "***";
-// const char *password = "***";
-// Replace with your preferred network name (when previous network is not available)
-const char *apssid = "Thermal";
-
+#include "wifi.h"
 // Bolometer stuff
 Adafruit_MLX90640 mlx;
 const size_t thermSize = (32 * 24) * sizeof(float);
@@ -177,15 +171,11 @@ void setup()
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
   if (WiFi.status() != WL_CONNECTED)
   {
-//     connectWifi(apssid, password);
-//     if (WiFi.status() != WL_CONNECTED)
-//     {
       connectWifi(ssid, password);
       if (WiFi.status() != WL_CONNECTED)
       {
         setupWifiAp(apssid, password);
       }
-//     }
   }
   log("WiFi setup");
 
