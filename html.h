@@ -65,7 +65,7 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
         }
         
         #colorImage {
-            transform: scale(1.1);
+            transform: scale(1);
         }
         
         #status {
@@ -147,6 +147,10 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
         
         #status {
             margin-top: 50px;
+        }
+
+        .hide {
+            display: none;
         }
         
         @media (orientation: landscape) {
@@ -247,6 +251,23 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
         </div>
         <div class="center">
             <button onclick="captureTherm()">Capture</button>
+            <button onclick="togglePosition()">Set position</button>
+        </div>
+        <div class="flex position hide">
+            <label id="posXContainer"><span>Position X <span id="posX"></span></span><input type="range" id="posXValue"
+                    min="-12.5" max="12.5" step="0.1" value="0" oninput="updateSettings()"></label>
+        </div>
+        <div class="flex position hide">
+            <label id="posYContainer"><span>Position Y <span id="posY"></span></span><input type="range" id="posYValue"
+                    min="-12.5" max="12.5" step="0.1" value="0" oninput="updateSettings()"></label>
+        </div>
+        <div class="flex position hide">
+            <label id="posYContainer"><span>Zoom <span id="zoom"></span></span><input type="range" id="zoomValue"
+                    min="0.5" max="2" step="0.01" value="1" oninput="updateSettings()"></label>
+        </div>
+        <div id="status">
+            <span id="fps"></span><br>
+            <span id="debugStatus"></span>
         </div>
         <div id="status">
             <span id="fps"></span><br>
@@ -439,6 +460,17 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
                 mindistance = parseInt(document.getElementById('distanceValue').value, 10);
                 document.getElementById('distanceSetting').innerText = mindistance;
             }
+
+            posX = parseFloat(document.getElementById('posXValue').value);
+            posY = parseFloat(document.getElementById('posYValue').value);
+            zoom = parseFloat(document.getElementById('zoomValue').value);
+
+            document.querySelector('#canvas').style.transform = 'translateX(' + posX + '%) translateY(' + posY + '%) scale(' + zoom + ')';
+
+            document.getElementById('posX').innerText = posX + '%';
+            document.getElementById('posY').innerText = posY + '%';
+            document.getElementById('zoom').innerText = zoom + 'X';
+
             saveSettings();
             drawCanvas();
         }
@@ -451,7 +483,10 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
                 opacity: opacity,
                 rangeMin: rangeMin,
                 rangeMax: rangeMax,
-                mindistance: mindistance
+                mindistance: mindistance,
+                posX: posX,
+                posY: posY,
+                zoom: zoom
             };
             localStorage.setItem('settings', JSON.stringify(saveObj));
         }
@@ -460,18 +495,44 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
             let settings = localStorage.getItem('settings');
             if (settings != null) {
                 settings = JSON.parse(settings);
-                document.getElementById('avgValue').checked = settings.avg;
-                document.getElementById('adaptiveValue').checked = settings.adaptiveRange;
+                if(settings.avg){
+                    document.getElementById('avgValue').checked = settings.avg;
+                }
+                if(settings.adaptiveRange){
+                    document.getElementById('adaptiveValue').checked = settings.adaptiveRange;
+                }
 
-                if (palettes.length > settings.currentPalette) {
+                if (settings.currentPalette && palettes.length > settings.currentPalette) {
                     currentPalette = palettes[settings.currentPalette];
                     document.getElementById('paletteValue').value = settings.currentPalette;
                 }
 
-                document.getElementById('opacityValue').value = settings.opacity;
-                document.getElementById('minValue').value = settings.rangeMin;
-                document.getElementById('maxValue').value = settings.rangeMax;
-                document.getElementById('distanceValue').value = settings.mindistance;
+                if (settings.palettes && palettes.length > settings.currentPalette) {
+                    currentPalette = palettes[settings.currentPalette];
+                    document.getElementById('paletteValue').value = settings.currentPalette;
+                }
+
+                if(settings.opacity){
+                    document.getElementById('opacityValue').value = settings.opacity;
+                }
+                if(settings.rangeMin){
+                    document.getElementById('minValue').value = settings.rangeMin;
+                }
+                if(settings.rangeMax){
+                    document.getElementById('maxValue').value = settings.rangeMax;
+                }
+                if(settings.mindistance){
+                    document.getElementById('distanceValue').value = settings.mindistance;
+                }
+                if(settings.posX){
+                    document.getElementById('posXValue').value = settings.posX;
+                }
+                if(settings.posY){
+                    document.getElementById('posYValue').value = settings.posY;
+                }
+                if(settings.zoom){
+                    document.getElementById('zoomValue').value = settings.zoom;
+                }
             }
         }
 
@@ -541,6 +602,16 @@ const char index_html[] PROGMEM = R"rawliteral(<html>
                     link.href = dataUrl;
                     link.click();
                 });
+        }
+
+        function togglePosition() {
+            document.querySelectorAll('.position').forEach((elem) => {
+                if (elem.classList.contains('hide')) {
+                    elem.classList.remove('hide');
+                } else {
+                    elem.classList.add('hide');
+                }
+            })
         }
     </script>
 </body>
