@@ -3,15 +3,16 @@
 #include <Adafruit_MLX90640.h>
 #include <esp_camera.h>
 #include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
+#include <ESPAsyncWebSrv.h>
 #include <ESPmDNS.h>
 #include "html.h"
 
 // Bolometer - Replace with your own pinout
 #define I2C_SCL 13
 #define I2C_SDA 12
+#define I2C_PUP  2 // this is where to connect the 2x 4k7 pull up resistors
 
-// Camera - Currently setup according to AI-Thinker board,
+// Camera - Currently setup according to AI-Thinker board, aka ESP32-CAM
 // Replace with your own setup if needed.
 #define PWDN_GPIO_NUM 32
 #define RESET_GPIO_NUM -1
@@ -30,12 +31,11 @@
 #define HREF_GPIO_NUM 23
 #define PCLK_GPIO_NUM 22
 
-// Replace with your network credentials
-const char *ssid = "***";
-const char *password = "***";
-// Replace with your preferred network name (when previous network is not available)
-const char *apssid = "Thermal";
+#define FLASH_LED  4
+#define SMALL_LED 33
+#define LED_CONTROL 15
 
+#include "wifi.h"
 // Bolometer stuff
 Adafruit_MLX90640 mlx;
 const size_t thermSize = (32 * 24) * sizeof(float);
@@ -64,7 +64,6 @@ void sendStatus()
   log("Sending status");
   String status = "STATUS:Total heap:" + String(ESP.getHeapSize()) += " | Free heap:" + String(ESP.getFreeHeap()) += " | WiFi RSSI:" + String(WiFi.RSSI()) += " | WiFi Status:" + String(WiFi.status());
   ws.textAll(status);
-  log("Sent status");
 }
 
 void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
@@ -125,8 +124,9 @@ void setup()
   Serial.println();
 
   log("Setting up bolometer");
+  pinMode(I2C_PUP, OUTPUT);
+  digitalWrite(I2C_PUP, HIGH);
   Wire.begin(I2C_SDA, I2C_SCL);
-  Wire.beginTransmission(MLX90640_I2CADDR_DEFAULT);
   
   mlx.begin(MLX90640_I2CADDR_DEFAULT, &Wire);
   mlx.setMode(MLX90640_CHESS);
@@ -171,15 +171,11 @@ void setup()
   WiFi.setTxPower(WIFI_POWER_MINUS_1dBm);
   if (WiFi.status() != WL_CONNECTED)
   {
-    connectWifi(apssid, password);
-    if (WiFi.status() != WL_CONNECTED)
-    {
       connectWifi(ssid, password);
       if (WiFi.status() != WL_CONNECTED)
       {
         setupWifiAp(apssid, password);
       }
-    }
   }
   log("WiFi setup");
 
@@ -195,8 +191,11 @@ void setup()
   server.begin();
   log("Webserver setup");
 
-  pinMode(4, OUTPUT);
-  digitalWrite(4, LOW);
+  pinMode(FLASH_LED, OUTPUT);
+  digitalWrite(FLASH_LED, LOW);
+  pinMode(LED_CONTROL, INPUT_PULLUP);
+  pinMode(SMALL_LED, OUTPUT);
+  digitalWrite(SMALL_LED, HIGH);
 }
 
 
@@ -209,9 +208,8 @@ void take_snapshot()
     log("Camera capture failed. Restarting");
     ESP.restart();
   }
-  log("Moving image to frame buffer " + String(fb->len) + " + " + String(thermSize) + " < " + String(frameSize));
+  log("Moving image to frame buffer " + String(fb->len) + " (max 30000)");
   memcpy(&frame[thermSize], fb->buf, fb->len);
-  log("Image moved to frame buffer");
   imageSize = fb->len;
   esp_camera_fb_return(fb);
   fb = NULL;
@@ -219,30 +217,25 @@ void take_snapshot()
 
 void take_thermal()
 {
-  log("Taking thermal data to buffer");
-  mlx.getFrame((float *)frame);
-  log("Thermal data taken");
+  Serial.printf("ThermalgetFrame=%d  ",mlx.getFrame((float *)frame));
 }
 
 unsigned long messageTimestamp = 0;
 int messageCounter = 0;
 
-void loop()
-{
+void loop() {
   ws.cleanupClients();
   uint64_t now = millis();
-  if (now - messageTimestamp > 150)
-  {
+  if (now - messageTimestamp > 200) {
+    digitalWrite(SMALL_LED,               ws.count()?LOW:HIGH);
+    digitalWrite(FLASH_LED, digitalRead(LED_CONTROL)?LOW:HIGH);
     memset(frame, 0, frameSize);
     take_thermal();
     take_snapshot();
-    log("Sending data");
     ws.binaryAll(frame, thermSize + imageSize);
-    log("Data sent");
     messageTimestamp = now;
     messageCounter++;
-    if (messageCounter > 30)
-    {
+    if (messageCounter > 20) {
       sendStatus();
       messageCounter = 0;
     }
